@@ -8,8 +8,8 @@ app.use(cors());
 app.use(express.json());
 
 // Data files
-const boysImages = require('./boys.json');
-const girlsImages = require('./girls.json');
+const boysImages = require('./dpboys.json');
+const girlsImages = require('./dpgirls.json');
 const girlsVideos = require('./girlsvideos.json');
 
 // ========================
