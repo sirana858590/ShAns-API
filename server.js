@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cheerio = require('cheerio');
 const app = express();
 
 // Initialize with your exact data arrays
@@ -194,6 +195,40 @@ app.get('/ShAn/dpboy', (req, res) => {
   const chosen = available[Math.floor(Math.random() * available.length)];
   sentItems.photos.push(chosen);
   res.json({ url: chosen });
+});
+
+app.get('/ShAn/ytsearch', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ error: 'Search query (q) is required' });
+
+    // Scrape YouTube search results
+    const response = await axios.get(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    const $ = cheerio.load(response.data);
+    const results = [];
+    
+    // Parse video results (note: YouTube frequently changes their HTML structure)
+    $('ytd-video-renderer').each((i, el) => {
+      if (i >= 10) return false; // Limit to 10 results
+      
+      results.push({
+        title: $(el).find('#video-title').text().trim(),
+        url: 'https://youtube.com' + $(el).find('#video-title').attr('href'),
+        thumbnail: $(el).find('img').attr('src'),
+        channel: $(el).find('#channel-name').text().trim()
+      });
+    });
+
+    res.json({ items: results });
+  } catch (error) {
+    console.error('Scraping error:', error);
+    res.status(500).json({ error: 'Failed to scrape YouTube' });
+  }
 });
 
 // Start server
