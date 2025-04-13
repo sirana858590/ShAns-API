@@ -204,48 +204,27 @@ app.get('/ShAn/dpboy', (req, res) => {
 });
 
 app.get('/ShAn/ytsearch', async (req, res) => {
+
+// Add this to ensure the endpoint exists
+app.get('/ShAn/ytsearch', async (req, res) => {
+  console.log("YouTube search endpoint hit!"); // Debug log
   try {
     const { q } = req.query;
-    if (!q) return res.status(400).json({ error: 'Search query (q) is required' });
-
-    // First try - Modern YouTube scraping
-    const response = await axios.get(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9'
-      }
-    });
-
-    const $ = cheerio.load(response.data);
-    const results = [];
+    if (!q) return res.status(400).json({ error: 'Query required' });
     
-    // Newest YouTube selector pattern
-    $('ytd-video-renderer, ytd-rich-item-renderer').each((i, el) => {
-      if (i >= 5) return false; // Limit to 5 results
-      
-      const title = $(el).find('#video-title').text().trim();
-      const url = 'https://youtube.com' + ($(el).find('#video-title').attr('href') || $(el).find('a#thumbnail').attr('href'));
-      const thumbnail = $(el).find('img').attr('src') || $(el).find('img').attr('data-thumb');
-      const channel = $(el).find('#channel-name a, yt-formatted-string.ytd-channel-name a').text().trim();
-      
-      if (title && url) {
-        results.push({
-          title,
-          url: url.split('&')[0], // Clean URL
-          thumbnail: thumbnail ? thumbnail.replace('//', 'https://') : null,
-          channel
-        });
-      }
+    // Test response
+    res.json({ 
+      success: true,
+      items: [{
+        title: "Test Video",
+        url: "https://youtube.com/watch?v=dQw4w9WgXcQ",
+        thumbnail: "https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg",
+        channel: "Test Channel"
+      }]
     });
-
-    if (results.length === 0) {
-      return res.status(404).json({ error: 'No videos found. YouTube may have changed their HTML structure.' });
-    }
-
-    res.json({ success: true, items: results });
   } catch (error) {
-    console.error('Scraping error:', error);
-    res.status(500).json({ error: 'Failed to scrape YouTube. Try again later.' });
+    console.error(error);
+    res.status(500).json({ error: 'Test error' });
   }
 });
 
