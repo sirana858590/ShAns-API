@@ -208,32 +208,44 @@ app.get('/ShAn/ytsearch', async (req, res) => {
     const { q } = req.query;
     if (!q) return res.status(400).json({ error: 'Search query (q) is required' });
 
-    // Scrape YouTube search results
+    // First try - Modern YouTube scraping
     const response = await axios.get(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9'
       }
     });
 
     const $ = cheerio.load(response.data);
     const results = [];
     
-    // Parse video results (note: YouTube frequently changes their HTML structure)
-    $('ytd-video-renderer').each((i, el) => {
-      if (i >= 10) return false; // Limit to 10 results
+    // Newest YouTube selector pattern
+    $('ytd-video-renderer, ytd-rich-item-renderer').each((i, el) => {
+      if (i >= 5) return false; // Limit to 5 results
       
-      results.push({
-        title: $(el).find('#video-title').text().trim(),
-        url: 'https://youtube.com' + $(el).find('#video-title').attr('href'),
-        thumbnail: $(el).find('img').attr('src'),
-        channel: $(el).find('#channel-name').text().trim()
-      });
+      const title = $(el).find('#video-title').text().trim();
+      const url = 'https://youtube.com' + ($(el).find('#video-title').attr('href') || $(el).find('a#thumbnail').attr('href'));
+      const thumbnail = $(el).find('img').attr('src') || $(el).find('img').attr('data-thumb');
+      const channel = $(el).find('#channel-name a, yt-formatted-string.ytd-channel-name a').text().trim();
+      
+      if (title && url) {
+        results.push({
+          title,
+          url: url.split('&')[0], // Clean URL
+          thumbnail: thumbnail ? thumbnail.replace('//', 'https://') : null,
+          channel
+        });
+      }
     });
 
-    res.json({ items: results });
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'No videos found. YouTube may have changed their HTML structure.' });
+    }
+
+    res.json({ success: true, items: results });
   } catch (error) {
     console.error('Scraping error:', error);
-    res.status(500).json({ error: 'Failed to scrape YouTube' });
+    res.status(500).json({ error: 'Failed to scrape YouTube. Try again later.' });
   }
 });
 
