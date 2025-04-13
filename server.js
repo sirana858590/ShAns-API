@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const cheerio = require('cheerio');
+const axios = require('axios');
 const app = express();
 
 // Initialize with your exact data arrays
@@ -167,6 +168,11 @@ const sentItems = {
 };
 
 app.use(cors());
+
+// root endpoint
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome-ShSn.s-Api' });
+});
 
 // Simplified endpoint handlers
 app.get('/ShAn/girlsvideo', (req, res) => {
