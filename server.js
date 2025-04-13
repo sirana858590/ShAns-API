@@ -203,31 +203,6 @@ app.get('/ShAn/dpboy', (req, res) => {
   res.json({ url: chosen });
 });
 
-app.get('/ShAn/ytsearch', async (req, res) => {
-
-// Add this to ensure the endpoint exists
-app.get('/ShAn/ytsearch', async (req, res) => {
-  console.log("YouTube search endpoint hit!"); // Debug log
-  try {
-    const { q } = req.query;
-    if (!q) return res.status(400).json({ error: 'Query required' });
-    
-    // Test response
-    res.json({ 
-      success: true,
-      items: [{
-        title: "Test Video",
-        url: "https://youtube.com/watch?v=dQw4w9WgXcQ",
-        thumbnail: "https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg",
-        channel: "Test Channel"
-      }]
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Test error' });
-  }
-});
-
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`API running on port ${PORT}`));
