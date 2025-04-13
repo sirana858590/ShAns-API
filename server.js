@@ -1,13 +1,9 @@
-// api/index.js
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
 const cheerio = require('cheerio');
-
 const app = express();
-app.use(cors());
 
-// Data arrays (same as your original)
+// Initialize with your exact data arrays
 const girlsVideos = [
 "https://drive.google.com/uc?export=download&id=12PMfrf5d0ahx0e2fvfN4XB3G1hi7SusZ",
 "https://drive.google.com/uc?export=download&id=12BOEV1OOgz464trZMHeoWv9YkW9L2TAj",
@@ -90,6 +86,7 @@ const girlsVideos = [
 "https://drive.google.com/uc?export=download&id=1AZJ1Y7XFSzVPG7qntx3SV4i5AUw06QH6",
 "https://drive.google.com/uc?export=download&id=1Ab9EOmObvaxZCuuGprctkWf523lGGq3C"
 ];
+
 const boyPhotos = [
 "https://i.postimg.cc/4yvhpb06/received-1000035335289031.jpg",
 "https://i.postimg.cc/yYPZdjcB/received-1076227457871166.jpg",
@@ -163,73 +160,77 @@ const boyPhotos = [
 "https://i.postimg.cc/GmqDsM4V/FB-IMG-1738608661960.jpg"
 ];
 
-// Memory tracking
+// Memory tracking (no database needed)
 const sentItems = {
   videos: [],
   photos: []
 };
 
-// Helper function to get random item with memory
-const getRandomItem = (pool, sentPool) => {
-  const available = pool.filter(url => !sentPool.includes(url));
+app.use(cors());
+
+// Simplified endpoint handlers
+app.get('/ShAn/girlsvideo', (req, res) => {
+  const { videos } = sentItems;
+  const available = girlsVideos.filter(url => !videos.includes(url));
+  
   if (available.length === 0) {
-    sentPool.length = 0; // Clear the sent items
-    return pool[Math.floor(Math.random() * pool.length)];
+    sentItems.videos = [];
+    return res.json({ url: girlsVideos[0] });
   }
+
   const chosen = available[Math.floor(Math.random() * available.length)];
-  sentPool.push(chosen);
-  return chosen;
-};
-
-// API endpoints
-app.get('/api/girlsvideo', (req, res) => {
-  try {
-    const videoUrl = getRandomItem(girlsVideos, sentItems.videos);
-    res.json({ url: videoUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch video' });
-  }
+  sentItems.videos.push(chosen);
+  res.json({ url: chosen });
 });
 
-app.get('/api/dpboy', (req, res) => {
-  try {
-    const photoUrl = getRandomItem(boyPhotos, sentItems.photos);
-    res.json({ url: photoUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch photo' });
+app.get('/ShAn/dpboy', (req, res) => {
+  const { photos } = sentItems;
+  const available = boyPhotos.filter(url => !photos.includes(url));
+  
+  if (available.length === 0) {
+    sentItems.photos = [];
+    return res.json({ url: boyPhotos[0] });
   }
+
+  const chosen = available[Math.floor(Math.random() * available.length)];
+  sentItems.photos.push(chosen);
+  res.json({ url: chosen });
 });
 
-app.get('/api/ytsearch', async (req, res) => {
+app.get('/ShAn/ytsearch', async (req, res) => {
   try {
     const { q } = req.query;
-    if (!q) return res.status(400).json({ error: 'Search query required' });
+    if (!q) return res.status(400).json({ error: 'Search query (q) is required' });
 
+    // Scrape YouTube search results
     const response = await axios.get(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
     });
 
     const $ = cheerio.load(response.data);
     const results = [];
     
+    // Parse video results (note: YouTube frequently changes their HTML structure)
     $('ytd-video-renderer').each((i, el) => {
-      if (i >= 10) return false;
-      const title = $(el).find('#video-title').text().trim();
-      const url = 'https://youtube.com' + $(el).find('#video-title').attr('href');
-      const thumbnail = $(el).find('img').attr('src') || '';
-      const channel = $(el).find('#channel-name').text().trim();
+      if (i >= 10) return false; // Limit to 10 results
       
-      if (title && url) results.push({ title, url, thumbnail, channel });
+      results.push({
+        title: $(el).find('#video-title').text().trim(),
+        url: 'https://youtube.com' + $(el).find('#video-title').attr('href'),
+        thumbnail: $(el).find('img').attr('src'),
+        channel: $(el).find('#channel-name').text().trim()
+      });
     });
 
     res.json({ items: results });
   } catch (error) {
-    console.error('YouTube search error:', error);
-    res.status(500).json({ error: 'Failed to search YouTube' });
+    console.error('Scraping error:', error);
+    res.status(500).json({ error: 'Failed to scrape YouTube' });
   }
 });
 
-// Vercel requires module.exports for serverless functions
-module.exports = app;
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`API running on port ${PORT}`));
