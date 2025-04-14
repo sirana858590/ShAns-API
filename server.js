@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cheerio = require('cheerio');
 const axios = require('axios');
 const app = express();
+app.use(express.json());
 
 // Initialize with your exact data arrays
 const girlsVideos = [
@@ -201,6 +203,30 @@ app.get('/ShAn/dpboy', (req, res) => {
   const chosen = available[Math.floor(Math.random() * available.length)];
   sentItems.photos.push(chosen);
   res.json({ url: chosen });
+});
+
+// Validate API Key Middleware
+const validateKey = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (apiKey !== process.env.OPENAI_API_KEY) {
+    return res.status(403).json({ error: 'Invalid API key' });
+  }
+  next();
+};
+
+// ChatGPT Endpoint
+app.post('/api/chat', validateKey, async (req, res) => {
+  try {
+    const { messages } = req.body;
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      { model: "gpt-3.5-turbo", messages },
+      { headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` } }
+    );
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Start server
