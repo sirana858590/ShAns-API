@@ -188,30 +188,66 @@ app.get('/ShAn/girlsvideo', (req, res) => {
   res.json({ url: chosen });
 });
 
-// ➕ NEW OpenAI Endpoint
+app.get('/ShAn/dpboy', (req, res) => {
+  const { photos } = sentItems;
+  const available = boyPhotos.filter(url => !photos.includes(url));
+  
+  if (available.length === 0) {
+    sentItems.photos = [];
+    return res.json({ url: boyPhotos[0] });
+  }
+
+  const chosen = available[Math.floor(Math.random() * available.length)];
+  sentItems.photos.push(chosen);
+  res.json({ url: chosen });
+});
+
+// In your API endpoint
 app.post('/ShAn/gpt4', async (req, res) => {
   try {
     const { prompt } = req.body;
     
-    const response = await axios.post(
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    // 1. Forward to OpenAI
+    const openaiResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: "gpt-3.5-turbo",
+        model: "gpt-4",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 150
+        temperature: 0.7
       },
       {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 25000
       }
     );
 
-    res.json({ response: response.data.choices[0].message.content });
+    // 2. Format response consistently
+    res.json({
+      response: openaiResponse.data.choices[0].message.content,
+      // Optional: Add metadata
+      model: "gpt-4",
+      tokens: openaiResponse.data.usage.total_tokens
+    });
+
   } catch (error) {
-    console.error('OpenAI Error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'AI processing failed' });
+    console.error('API Error:', error);
+    
+    // 3. Better error responses
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.error?.message || 
+                   "AI processing failed";
+
+    res.status(status).json({ 
+      error: message,
+      tip: "Check your OpenAI API key and quota"
+    });
   }
 });
 
