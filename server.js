@@ -1,12 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const cheerio = require('cheerio');
 const axios = require('axios');
 const app = express();
-app.use(express.json());
 
-// Initialize with your exact data arrays
 const girlsVideos = [
 "https://drive.google.com/uc?export=download&id=12PMfrf5d0ahx0e2fvfN4XB3G1hi7SusZ",
 "https://drive.google.com/uc?export=download&id=12BOEV1OOgz464trZMHeoWv9YkW9L2TAj",
@@ -163,20 +160,20 @@ const boyPhotos = [
 "https://i.postimg.cc/GmqDsM4V/FB-IMG-1738608661960.jpg"
 ];
 
-// Memory tracking (no database needed)
+// Initialize Express
+app.use(cors());
+app.use(express.json());
+
+// Memory tracking (unchanged)
 const sentItems = {
   videos: [],
   photos: []
 };
 
-app.use(cors());
-
-// root endpoint
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome-ShSn.s-Api' });
 });
 
-// Simplified endpoint handlers
 app.get('/ShAn/girlsvideo', (req, res) => {
   const { videos } = sentItems;
   const available = girlsVideos.filter(url => !videos.includes(url));
@@ -191,44 +188,35 @@ app.get('/ShAn/girlsvideo', (req, res) => {
   res.json({ url: chosen });
 });
 
-app.get('/ShAn/dpboy', (req, res) => {
-  const { photos } = sentItems;
-  const available = boyPhotos.filter(url => !photos.includes(url));
-  
-  if (available.length === 0) {
-    sentItems.photos = [];
-    return res.json({ url: boyPhotos[0] });
-  }
-
-  const chosen = available[Math.floor(Math.random() * available.length)];
-  sentItems.photos.push(chosen);
-  res.json({ url: chosen });
-});
-
-// Validate API Key Middleware
-const validateKey = (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey !== process.env.OPENAI_API_KEY) {
-    return res.status(403).json({ error: 'Invalid API key' });
-  }
-  next();
-};
-
-// ChatGPT Endpoint
-app.post('/api/chat', validateKey, async (req, res) => {
+// ➕ NEW OpenAI Endpoint
+app.post('/ShAn/gpt4', async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { prompt } = req.body;
+    
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
-      { model: "gpt-3.5-turbo", messages },
-      { headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` } }
+      {
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
     );
-    res.json(response.data);
+
+    res.json({ response: response.data.choices[0].message.content });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('OpenAI Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'AI processing failed' });
   }
 });
 
-// Start server
+// Start server (modified for Render compatibility)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+});
