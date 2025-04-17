@@ -1,9 +1,9 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const app = express();
 
+// Keep all your existing arrays and setup
 const girlsVideos = [
 "https://drive.google.com/uc?export=download&id=12PMfrf5d0ahx0e2fvfN4XB3G1hi7SusZ",
 "https://drive.google.com/uc?export=download&id=12BOEV1OOgz464trZMHeoWv9YkW9L2TAj",
@@ -86,7 +86,6 @@ const girlsVideos = [
 "https://drive.google.com/uc?export=download&id=1AZJ1Y7XFSzVPG7qntx3SV4i5AUw06QH6",
 "https://drive.google.com/uc?export=download&id=1Ab9EOmObvaxZCuuGprctkWf523lGGq3C"
 ];
-
 const boyPhotos = [
 "https://i.postimg.cc/4yvhpb06/received-1000035335289031.jpg",
 "https://i.postimg.cc/yYPZdjcB/received-1076227457871166.jpg",
@@ -159,16 +158,13 @@ const boyPhotos = [
 "https://i.postimg.cc/BvbK5xD6/FB-IMG-1738608657729.jpg",
 "https://i.postimg.cc/GmqDsM4V/FB-IMG-1738608661960.jpg"
 ];
-
-// Initialize Express
-app.use(cors());
-app.use(express.json());
-
-// Memory tracking (unchanged)
-const sentItems = {
-  videos: [],
-  photos: []
+const sentItems = { 
+  videos: [], 
+  photos: [] 
 };
+
+app.use(cors());
+
 
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome-ShSn.s-Api' });
@@ -202,57 +198,42 @@ app.get('/ShAn/dpboy', (req, res) => {
   res.json({ url: chosen });
 });
 
-// In your API endpoint
-app.post('/ShAn/gpt4', async (req, res) => {
+// ======== NEW TIKTOK DOWNLOADER ENDPOINT ========
+app.get('/ShAn/tikdl', async (req, res) => {
   try {
-    const { prompt } = req.body;
+    const { url } = req.query;
     
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
+    // Validate TikTok URL
+    if (!url || !/tiktok\.com\//i.test(url)) {
+      return res.status(400).json({ error: 'Valid TikTok URL required' });
     }
 
-    // 1. Forward to OpenAI
-    const openaiResponse = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: "gpt-4",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 25000
-      }
-    );
+    // Fetch video info (using a free API)
+    const apiResponse = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`);
+    const videoData = apiResponse.data.data;
 
-    // 2. Format response consistently
+    if (!videoData.play) {
+      throw new Error('No video URL found in response');
+    }
+
+    // Return the video URL and metadata
     res.json({
-      response: openaiResponse.data.choices[0].message.content,
-      // Optional: Add metadata
-      model: "gpt-4",
-      tokens: openaiResponse.data.usage.total_tokens
+      success: true,
+      video_url: videoData.play,
+      title: videoData.title,
+      author: videoData.author?.nickname || 'Unknown',
+      duration: videoData.duration
     });
 
   } catch (error) {
-    console.error('API Error:', error);
-    
-    // 3. Better error responses
-    const status = error.response?.status || 500;
-    const message = error.response?.data?.error?.message || 
-                   "AI processing failed";
-
-    res.status(status).json({ 
-      error: message,
-      tip: "Check your OpenAI API key and quota"
+    console.error('TikTok download error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to download TikTok video' 
     });
   }
 });
 
-// Start server (modified for Render compatibility)
+// Keep your existing server setup
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`API running on port ${PORT}`));
