@@ -3,7 +3,7 @@ const cors = require('cors');
 const axios = require('axios');
 const app = express();
 
-// Keep all your existing arrays and setup
+// Your existing media arrays
 const girlsVideos = [
 "https://drive.google.com/uc?export=download&id=12PMfrf5d0ahx0e2fvfN4XB3G1hi7SusZ",
 "https://drive.google.com/uc?export=download&id=12BOEV1OOgz464trZMHeoWv9YkW9L2TAj",
@@ -163,9 +163,20 @@ const sentItems = {
   photos: [] 
 };
 
+// Enhanced TikTok URL validation
+const isValidTikTokUrl = (url) => {
+  const patterns = [
+    /^https?:\/\/(www\.|vm\.|vt\.)?tiktok\.com\/@[\w.-]+\/video\/\d+/i,
+    /^https?:\/\/(vm\.|vt\.)?tiktok\.com\/[\w-]+\/?$/i,
+    /^https?:\/\/m\.tiktok\.com\/v\/\d+\.html/i,
+    /^https?:\/\/(www\.)?tiktok\.com\/t\/[\w-]+\/?/i
+  ];
+  return patterns.some(pattern => pattern.test(url));
+};
+
 app.use(cors());
 
-
+// Your existing endpoints
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome-ShSn.s-Api' });
 });
@@ -198,42 +209,72 @@ app.get('/ShAn/dpboy', (req, res) => {
   res.json({ url: chosen });
 });
 
-// ======== NEW TIKTOK DOWNLOADER ENDPOINT ========
+// Fixed TikTok Downloader Endpoint
 app.get('/ShAn/tikdl', async (req, res) => {
   try {
     const { url } = req.query;
-    
+
+    // Validate input
+    if (!url) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'URL parameter is required',
+        example: 'https://www.tiktok.com/@username/video/123456789'
+      });
+    }
+
     // Validate TikTok URL
-    if (!url || !/tiktok\.com\//i.test(url)) {
-      return res.status(400).json({ error: 'Valid TikTok URL required' });
+    if (!isValidTikTokUrl(url)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid TikTok URL',
+        valid_formats: [
+          'https://www.tiktok.com/@username/video/123456789',
+          'https://vm.tiktok.com/AbCdEfG/',
+          'https://vt.tiktok.com/XyZ123/',
+          'https://m.tiktok.com/v/123456789.html'
+        ]
+      });
     }
 
-    // Fetch video info (using a free API)
-    const apiResponse = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`);
-    const videoData = apiResponse.data.data;
+    // Use TikTok API
+    const apiResponse = await axios.get(`https://api.tikdown.org/api/info`, {
+      params: { url },
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept': 'application/json'
+      },
+      timeout: 10000
+    });
 
-    if (!videoData.play) {
-      throw new Error('No video URL found in response');
+    // Check API response
+    if (!apiResponse.data?.video?.noWatermark) {
+      throw new Error('No video URL found in API response');
     }
 
-    // Return the video URL and metadata
+    // Return video info
     res.json({
       success: true,
-      video_url: videoData.play,
-      title: videoData.title,
-      author: videoData.author?.nickname || 'Unknown',
-      duration: videoData.duration
+      video_url: apiResponse.data.video.noWatermark,
+      title: apiResponse.data.desc || 'No title',
+      author: apiResponse.data.author?.nickname || 'Unknown',
+      duration: apiResponse.data.duration || 0
     });
 
   } catch (error) {
-    console.error('TikTok download error:', error);
-    res.status(500).json({ 
+    console.error('TikTok Download Error:', error.message);
+    res.status(500).json({
       success: false,
-      error: error.message || 'Failed to download TikTok video' 
+      error: 'Failed to download TikTok video',
+      details: error.message,
+      solution: 'Please try again with a different URL or try again later'
     });
   }
 });
 
-// Keep your existing server setup
+// Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`TikTok Downloader: http://localhost:${PORT}/ShAn/tikdl?url=[TikTok_URL]`);
+});
